@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bytestore_app
+    restart: unless-stopped
+    working_dir: /var/www
+    environment:
+      - APP_NAME=ByteStore
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_URL=http://localhost:8080
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=bytestore
+      - DB_USERNAME=bytestore
+      - DB_PASSWORD=12345678
+    volumes:
+      - .:/var/www
+      - ./storage/logs:/var/www/storage/logs
+      - ./storage/framework/cache:/var/www/storage/framework/cache
+      - ./storage/framework/sessions:/var/www/storage/framework/sessions
+      - ./storage/framework/views:/var/www/storage/framework/views
+    ports:
+      - "9000:9000"
+    depends_on:
+      - db
+    networks:
+      - bytestore
+
+  nginx:
+    image: nginx:alpine
+    container_name: bytestore_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - bytestore
+
+  db:
+    image: mysql:8.0
+    container_name: bytestore_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bytestore
+      MYSQL_USER: bytestore
+      MYSQL_PASSWORD: 12345678
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - bytestore
+
+  vite:
+    image: node:20
+    container_name: bytestore_vite
+    working_dir: /var/www
+    volumes:
+      - .:/var/www
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - app
+    networks:
+      - bytestore
+
+networks:
+  bytestore:
+    driver: bridge
+
+volumes:
+  db_data:
